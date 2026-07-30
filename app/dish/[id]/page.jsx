@@ -170,7 +170,7 @@ export default async function DishPage({ params }) {
             kidney or liver disease, or take medication for any of them, speak to your doctor
             before changing how you eat.
           </p>
-          <p>© 2026 Aseem Mohan.</p>
+          <p>© 2026 Aseem Mohan. · <a href="/privacy" style={{ color: "var(--turmeric)" }}>Privacy notice</a></p>
         </div>
       </footer>
     </>

@@ -50,7 +50,13 @@ export default function Privacy() {
             below.
           </p>
         </section>
-
+<section className="sec">
+          <h2>Cookies</h2>
+          <p>
+            This site sets no cookies of any kind. No consent banner appears because there
+            is nothing to consent to.
+          </p>
+        </section>
         <section className="sec">
           <h2>Who is responsible</h2>
           <p>

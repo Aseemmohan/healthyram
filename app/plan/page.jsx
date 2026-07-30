@@ -358,7 +358,7 @@ function Shell({ children }) {
             General information about food. Not medical or dietary advice, and no substitute for
             someone who can see your bloodwork.
           </p>
-          <p>© 2026 Aseem Mohan.</p>
+         <p>© 2026 Aseem Mohan. · <a href="/privacy" style={{ color: "var(--turmeric)" }}>Privacy notice</a></p>
         </div>
       </footer>
 
