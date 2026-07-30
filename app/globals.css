@@ -56,13 +56,22 @@ img { max-width: 100%; display: block; }
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
 }
 .mark {
-  font-family: 'Fraunces', serif; font-weight: 900; font-size: 1.1rem;
-  letter-spacing: -0.03em; text-decoration: none; color: #EFF3F0;
+  display: inline-block;
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.55rem;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+  color: #FBFAF6;
+  text-shadow: 0 1px 3px rgba(0,0,0,.22);
+  transition: transform 160ms ease;
 }
-.mark em { font-style: normal; color: var(--turmeric); }
-.nav-link {
-  font-size: 0.8rem; font-weight: 600; text-decoration: none; color: #BCCCC3;
+.mark em {
+  font-style: normal;
+  font-weight: 900;
+  color: var(--turmeric);
 }
+.mark:hover { transform: scale(1.04); }
 .nav-link:hover { color: var(--turmeric); }
 
 /* ---------------- hero ---------------- */
@@ -305,4 +314,23 @@ img { max-width: 100%; display: block; }
 @media (min-width: 1000px) {
   .grid { grid-template-columns: repeat(3, 1fr); }
   .bar.tall .bar-seg { height: 132px; }
+}
+.plan-cta {
+  margin-top: 28px; background: var(--card); border: 1px solid var(--rule);
+  border-radius: 10px; padding: 24px; display: grid; gap: 18px;
+}
+.plan-cta h2 {
+  font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.3rem;
+  letter-spacing: -0.02em; margin: 0 0 8px;
+}
+.plan-cta p { margin: 0; font-size: 0.92rem; color: var(--soft); max-width: 48ch; }
+.plan-cta-btn {
+  justify-self: start; background: var(--leaf); color: #fff; text-decoration: none;
+  padding: 14px 26px; border-radius: 8px; font-weight: 700; font-size: 0.95rem;
+  white-space: nowrap;
+}
+.plan-cta-btn:hover { background: var(--leaf-lt); }
+@media (min-width: 700px) {
+  .plan-cta { grid-template-columns: 1fr auto; align-items: center; }
+  .plan-cta-btn { justify-self: end; }
 }

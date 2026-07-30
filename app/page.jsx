@@ -45,7 +45,7 @@ export default function Home() {
       <nav className="nav">
         <div className="nav-in">
           <Link className="mark" href="/">healthy<em>ram</em></Link>
-          <span className="nav-link">Thirty dishes, honest numbers</span>
+          <Link className="nav-link" href="/plan">Build a plan →</Link>
         </div>
       </nav>
 
@@ -76,7 +76,18 @@ export default function Home() {
           </div>
         </div>
       </header>
-
+<div className="wrap">
+        <div className="plan-cta">
+          <div>
+            <h2>Want this applied to you?</h2>
+            <p>
+              Your measurements, your goal, and the dishes you actually eat — turned into
+              targets and one habit to start with. Two minutes, nothing stored.
+            </p>
+          </div>
+          <Link className="plan-cta-btn" href="/plan">Build a plan</Link>
+        </div>
+      </div>
       <div className="chips">
         <div className="chips-in">
           {CATEGORIES.map(c => (
