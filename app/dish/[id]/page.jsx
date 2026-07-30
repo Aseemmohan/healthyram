@@ -119,6 +119,7 @@ export default async function DishPage({ params }) {
                 <div><span>Fibre</span><b>{c.fibre} g</b></div>
               </div>
               <p className="comp-note">{c.note}</p>
+              {c.basis && <p className="comp-basis">Computed from {c.basis}</p>}
               {TAG[c.verdict] && <span className={`tag ${c.verdict}`}>{TAG[c.verdict]}</span>}
             </article>
           ))}

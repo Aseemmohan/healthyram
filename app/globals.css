@@ -334,3 +334,11 @@ img { max-width: 100%; display: block; }
   .plan-cta { grid-template-columns: 1fr auto; align-items: center; }
   .plan-cta-btn { justify-self: end; }
 }
+.comp-basis {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule);
+  font-size: 0.76rem;
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+}
