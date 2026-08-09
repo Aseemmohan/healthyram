@@ -59,6 +59,14 @@ export default function Account() {
   const daysLeft = Math.ceil((new Date(plan.ends_at) - Date.now()) / 86400000);
   const dueForCheckin = daysLeft <= 0;
 
+  // Backward-compatible: the plan row you already have was saved before
+  // Move/Hydrate existed, so plan.plan is the flat {days, summary} shape
+  // directly rather than nested under .meals. This handles both without
+  // needing you to reassess just to see the new sections.
+  const meals = plan.plan.meals || plan.plan;
+  const movement = plan.plan.movement || null;
+  const hydration = plan.plan.hydration || null;
+
   return (
     <Shell>
       <p className="eyebrow">Your account</p>
@@ -80,15 +88,66 @@ export default function Account() {
         </>
       ) : (
         <>
+          {movement && (
+            <>
+              <h2>Move</h2>
+              <div className="pl-nums">
+                <div><span>Daily walking</span><b>{movement.walk.dailyMinutes}</b><em>minutes</em></div>
+                <div><span>Resistance sessions</span><b>{movement.circuit.sessionsPerWeek}</b><em>a week</em></div>
+              </div>
+              <p className="pl-note">{movement.walk.note}</p>
+              <div className="pl-habit" style={{ marginTop: 16 }}>
+                <strong>{movement.walk.postMeal.minutes}-minute walk after your largest meal</strong>
+                <p>{movement.walk.postMeal.note}</p>
+              </div>
+              <details className="pl-more">
+                <summary>
+                  Home circuit — {movement.circuit.rounds} rounds, {movement.circuit.sessionsPerWeek}x a week, no equipment
+                </summary>
+                <div className="pl-circuit">
+                  {movement.circuit.exercises.map((ex, i) => (
+                    <div className="pl-exercise" key={i}>
+                      <strong>{ex.name}</strong>
+                      <span>{ex.reps}</span>
+                      {ex.note && <em>{ex.note}</em>}
+                    </div>
+                  ))}
+                </div>
+                <p className="pl-note">Rest {movement.circuit.restBetweenRounds} between rounds. {movement.circuit.note}</p>
+              </details>
+            </>
+          )}
+
+          {hydration && (
+            <>
+              <h2>Hydrate</h2>
+              <div className="pl-nums">
+                <div><span>Daily water</span><b>{hydration.dailyTargetGlasses}</b><em>glasses (250 ml each)</em></div>
+              </div>
+              <p className="pl-note">{hydration.note}</p>
+              <div className="pl-warn" style={{ marginTop: 16 }}>
+                <p>{hydration.sugarNote}</p>
+              </div>
+              <p className="pl-h3" style={{ marginTop: 24 }}>Better swaps than a sugary drink</p>
+              {hydration.alternatives.map((a, i) => (
+                <div className="pl-swap" key={i}>
+                  <strong>{a.name}</strong>
+                  <p>{a.note}</p>
+                </div>
+              ))}
+            </>
+          )}
+
           <h2>Your current 14-day plan</h2>
-          <p className="pl-note">{plan.plan.summary.note}</p>
-          {plan.plan.summary.shortfall && (
+          <p className="pl-note">{meals.summary.note}</p>
+          {meals.summary.shortfall && (
             <div className="pl-warn">
-              <p>{plan.plan.summary.shortfallNote}</p>
+              <p>{meals.summary.shortfallNote}</p>
+              {meals.summary.vegSupplementNote && <p>{meals.summary.vegSupplementNote}</p>}
             </div>
           )}
           <div className="pl-plandays">
-            {plan.plan.days.map(d => (
+            {meals.days.map(d => (
               <details className="pl-day" key={d.day}>
                 <summary>
                   Day {d.day} <span>{d.totalKcal} kcal · {d.totalProtein} g protein</span>
@@ -173,6 +232,35 @@ function Shell({ children }) {
         .pl-meal-nums { font-size: .8rem; color: var(--soft); white-space: nowrap; }
         .pl-warn { background: var(--chilli-lt); border-left: 4px solid var(--chilli); padding: 16px 18px; border-radius: 8px; margin-top: 14px; }
         .pl-warn p { margin: 0; font-size: .89rem; }
+
+        .pl-habit { background: var(--leaf); color: #EFF3F0; border-radius: 10px; padding: 22px 24px; }
+        .pl-habit strong { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.2rem; display: block; margin-bottom: 10px; }
+        .pl-habit p { margin: 0; font-size: .92rem; color: #B9C9C0; }
+
+        .pl-more { margin-top: 14px; }
+        .pl-more summary { cursor: pointer; font-size: .88rem; color: var(--leaf); font-weight: 700; }
+        .pl-more div { font-size: .89rem; color: var(--soft); margin-top: 12px; }
+
+        .pl-h3 {
+          font-family: 'Manrope', sans-serif; font-size: .74rem; font-weight: 800;
+          letter-spacing: .1em; text-transform: uppercase; color: var(--mute);
+        }
+
+        .pl-circuit { margin-top: 14px; display: grid; gap: 8px; }
+        .pl-exercise {
+          display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline;
+          background: var(--bg, transparent); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px;
+        }
+        .pl-exercise strong { font-weight: 700; grid-column: 1; }
+        .pl-exercise span { font-weight: 700; color: var(--leaf); grid-column: 2; white-space: nowrap; }
+        .pl-exercise em { grid-column: 1 / -1; font-style: normal; font-size: .82rem; color: var(--soft); margin-top: 2px; }
+
+        .pl-swap {
+          background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+          padding: 12px 14px; margin-bottom: 8px; margin-top: 8px;
+        }
+        .pl-swap strong { display: block; font-weight: 700; font-size: .92rem; }
+        .pl-swap p { margin: 4px 0 0; font-size: .85rem; color: var(--soft); }
 
         @media (min-width: 620px) { .pl-nums { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 619px) {

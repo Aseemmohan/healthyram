@@ -26,6 +26,8 @@ import {
   screen, baseline, targets, selectDishes, habits, TRUTHS,
 } from "../../lib/program";
 import { generateMealPlan } from "../../lib/mealplan";
+import { buildMovementPlan } from "../../lib/movement";
+import { buildHydrationPlan } from "../../lib/hydration";
 import { supabaseBrowser } from "../../lib/supabaseClient";
 
 const ACTIVITY_OPTIONS = [
@@ -101,8 +103,10 @@ export default function PlanBuilder() {
       activity, goal, goalWeightKg: goalWeight ? Number(goalWeight) : undefined,
     });
     const plan = generateMealPlan(t, veg);
+    const movement = buildMovementPlan({ goal, activity });
+    const hydration = buildHydrationPlan({ weightKg: Number(weight), activity });
     return {
-      b, t, plan,
+      b, t, plan, movement, hydration,
       dishes: selectDishes({ veg, goal, baselineResult: b }),
       week1: habits({ targets: t, baselineResult: b, week: 1 }),
     };
@@ -139,7 +143,7 @@ export default function PlanBuilder() {
         user_id: user.id, is_current: true,
         weight_kg: Number(weight), goal,
         intake_kcal: result.t.intake, protein_g: result.t.proteinG,
-        plan: result.plan,
+        plan: { meals: result.plan, movement: result.movement, hydration: result.hydration },
         ends_at: nextCheckin,
       });
 
@@ -204,7 +208,7 @@ export default function PlanBuilder() {
 
   /* ---------------- results ---------------- */
   if (step === 4 && result) {
-    const { b, t, dishes, week1, plan } = result;
+    const { b, t, dishes, week1, plan, movement, hydration } = result;
     return (
       <Shell>
         <div className="pl-res">
@@ -250,6 +254,49 @@ export default function PlanBuilder() {
             ))}
           </details>
 
+          <h2>Move</h2>
+          <div className="pl-nums">
+            <div><span>Daily walking</span><b>{movement.walk.dailyMinutes}</b><em>minutes</em></div>
+            <div><span>Resistance sessions</span><b>{movement.circuit.sessionsPerWeek}</b><em>a week</em></div>
+          </div>
+          <p className="pl-note">{movement.walk.note}</p>
+          <div className="pl-habit" style={{ marginTop: 16 }}>
+            <strong>{movement.walk.postMeal.minutes}-minute walk after your largest meal</strong>
+            <p>{movement.walk.postMeal.note}</p>
+          </div>
+
+          <details className="pl-more" open>
+            <summary>
+              Home circuit — {movement.circuit.rounds} rounds, {movement.circuit.sessionsPerWeek}x a week, no equipment
+            </summary>
+            <div className="pl-circuit">
+              {movement.circuit.exercises.map((ex, i) => (
+                <div className="pl-exercise" key={i}>
+                  <strong>{ex.name}</strong>
+                  <span>{ex.reps}</span>
+                  {ex.note && <em>{ex.note}</em>}
+                </div>
+              ))}
+            </div>
+            <p className="pl-note">Rest {movement.circuit.restBetweenRounds} between rounds. {movement.circuit.note}</p>
+          </details>
+
+          <h2>Hydrate</h2>
+          <div className="pl-nums">
+            <div><span>Daily water</span><b>{hydration.dailyTargetGlasses}</b><em>glasses (250 ml each)</em></div>
+          </div>
+          <p className="pl-note">{hydration.note}</p>
+          <div className="pl-warn" style={{ marginTop: 16 }}>
+            <p>{hydration.sugarNote}</p>
+          </div>
+          <p className="pl-h3" style={{ marginTop: 24 }}>Better swaps than a sugary drink</p>
+          {hydration.alternatives.map((a, i) => (
+            <div className="pl-swap" key={i}>
+              <strong>{a.name}</strong>
+              <p>{a.note}</p>
+            </div>
+          ))}
+
           <h2>Your 14-day meal plan</h2>
           <p className="pl-note">{plan.summary.note}</p>
           <p className="pl-note">
@@ -259,6 +306,7 @@ export default function PlanBuilder() {
           {plan.summary.shortfall && (
             <div className="pl-warn">
               <p>{plan.summary.shortfallNote}</p>
+              {plan.summary.vegSupplementNote && <p>{plan.summary.vegSupplementNote}</p>}
             </div>
           )}
           <div className="pl-plandays">
@@ -624,6 +672,22 @@ function Shell({ children }) {
         .pl-dish em { font-style: normal; font-size: .78rem; color: var(--mute); }
         .pl-dish.solution { border-left: 4px solid var(--leaf); }
         .pl-dish.solution span { color: var(--leaf); }
+
+        .pl-circuit { margin-top: 14px; display: grid; gap: 8px; }
+        .pl-exercise {
+          display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline;
+          background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px;
+        }
+        .pl-exercise strong { font-weight: 700; grid-column: 1; }
+        .pl-exercise span { font-weight: 700; color: var(--leaf); grid-column: 2; white-space: nowrap; }
+        .pl-exercise em { grid-column: 1 / -1; font-style: normal; font-size: .82rem; color: var(--soft); margin-top: 2px; }
+
+        .pl-swap {
+          background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+          padding: 12px 14px; margin-bottom: 8px;
+        }
+        .pl-swap strong { display: block; font-weight: 700; font-size: .92rem; }
+        .pl-swap p { margin: 4px 0 0; font-size: .85rem; color: var(--soft); }
 
         .pl-truths p {
           background: var(--card); border-left: 3px solid var(--steel);
