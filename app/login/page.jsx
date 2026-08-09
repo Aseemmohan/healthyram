@@ -4,14 +4,14 @@
  * Login — Healthyram
  * © 2026 Aseem Mohan. All rights reserved.
  *
- * INSTALL AT: app/login/page.jsx
+ * INSTALL AT: app/login/page.jsx  (replaces the previous version)
  *
- * Google OAuth only for now. The button array is deliberately built
- * so Facebook and LinkedIn can be added later by adding entries —
- * see PROVIDERS below.
+ * FIX: useSearchParams() must be inside a Suspense boundary or the
+ * Next.js build fails during static prerendering. The actual sign-in
+ * logic is unchanged — only the component structure changed.
  */
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "../../lib/supabaseClient";
@@ -22,7 +22,7 @@ const PROVIDERS = [
   // { id: "linkedin_oidc", label: "Continue with LinkedIn" }, // phase 2
 ];
 
-export default function Login() {
+function LoginInner() {
   const [busy, setBusy] = useState(null);
   const params = useSearchParams();
   const next = params.get("next") || "/plan";
@@ -44,6 +44,33 @@ export default function Login() {
 
   return (
     <>
+      <p className="eyebrow">Sign in</p>
+      <h1>Track your plan over time</h1>
+      <p className="login-lede">
+        Signing in lets Healthyram remember your plan and check back in with
+        you in two weeks. We only store what the plan builder already asks
+        for — nothing extra, and nothing sold or shared.
+      </p>
+
+      <div className="login-btns">
+        {PROVIDERS.map(p => (
+          <button key={p.id} disabled={!!busy} onClick={() => signIn(p.id)}>
+            {busy === p.id ? "Redirecting…" : p.label}
+          </button>
+        ))}
+      </div>
+
+      <p className="login-alt">
+        Just want a one-off number with nothing saved?{" "}
+        <Link href="/plan-guest">Use the calculator without an account</Link>.
+      </p>
+    </>
+  );
+}
+
+export default function Login() {
+  return (
+    <>
       <nav className="nav">
         <div className="nav-in">
           <Link className="mark" href="/">healthy<em>ram</em></Link>
@@ -52,26 +79,9 @@ export default function Login() {
       </nav>
 
       <main className="login">
-        <p className="eyebrow">Sign in</p>
-        <h1>Track your plan over time</h1>
-        <p className="login-lede">
-          Signing in lets Healthyram remember your plan and check back in with
-          you in two weeks. We only store what the plan builder already asks
-          for — nothing extra, and nothing sold or shared.
-        </p>
-
-        <div className="login-btns">
-          {PROVIDERS.map(p => (
-            <button key={p.id} disabled={!!busy} onClick={() => signIn(p.id)}>
-              {busy === p.id ? "Redirecting…" : p.label}
-            </button>
-          ))}
-        </div>
-
-        <p className="login-alt">
-          Just want a one-off number with nothing saved?{" "}
-          <Link href="/plan-guest">Use the calculator without an account</Link>.
-        </p>
+        <Suspense fallback={<p className="pl-note">Loading…</p>}>
+          <LoginInner />
+        </Suspense>
       </main>
 
       <style jsx global>{`
