@@ -256,6 +256,11 @@ export default function PlanBuilder() {
             Averaging <b>{plan.summary.avgKcal} kcal</b> and <b>{plan.summary.avgProtein} g protein</b> a
             day against your target of {plan.summary.target.kcal} kcal / {plan.summary.target.protein} g.
           </p>
+          {plan.summary.shortfall && (
+            <div className="pl-warn">
+              <p>{plan.summary.shortfallNote}</p>
+            </div>
+          )}
           <div className="pl-plandays">
             {plan.days.map(d => (
               <details className="pl-day" key={d.day}>
@@ -265,7 +270,7 @@ export default function PlanBuilder() {
                 {d.meals.map((m, i) => (
                   <Link href={`/dish/${m.id}`} className="pl-meal" key={i}>
                     <span className="pl-meal-slot">{m.slot}</span>
-                    <span className="pl-meal-name">{m.name}</span>
+                    <span className="pl-meal-name">{m.name}<em className="pl-meal-portion">{m.portion}</em></span>
                     <span className="pl-meal-nums">{m.kcal} kcal · {m.protein}g</span>
                   </Link>
                 ))}
@@ -603,7 +608,8 @@ function Shell({ children }) {
         }
         .pl-meal:first-of-type { border-top: none; margin-top: 10px; }
         .pl-meal-slot { font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
-        .pl-meal-name { font-weight: 600; }
+        .pl-meal-name { font-weight: 600; display: block; }
+        .pl-meal-portion { display: block; font-style: normal; font-size: .78rem; color: var(--mute); font-weight: 400; margin-top: 1px; }
         .pl-meal-nums { font-size: .8rem; color: var(--soft); white-space: nowrap; }
 
         .pl-dish {
