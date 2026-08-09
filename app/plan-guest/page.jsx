@@ -1,32 +1,31 @@
 "use client";
 
 /**
- * Plan builder — Healthyram
+ * Plan builder — guest / no-account version — Healthyram
  * © 2026 Aseem Mohan. All rights reserved.
  *
- * INSTALL AT: app/plan/page.jsx  (replaces the existing file)
+ * INSTALL AT: app/plan-guest/page.jsx  (new file — do not overwrite app/plan)
  *
- * CHANGES FROM THE ORIGINAL:
- *   - Gated behind login by middleware.js (Google OAuth via Supabase).
- *   - On completing the wizard, also generates and saves a 14-day meal
- *     plan (lib/mealplan.js) and the profile snapshot to Supabase.
- *   - If the signed-in user already has an active (< 14 days old) plan,
- *     offers to view it on /account instead of rebuilding from scratch.
+ * This is the ORIGINAL calculator, unchanged, kept for anyone who wants
+ * a one-off number with nothing saved anywhere. The account-linked
+ * version with 14-day meal plans and progress tracking now lives at
+ * app/plan/page.jsx and requires sign-in.
  *
- * The medical screening, baseline, targets and dish-selection logic
- * below is UNCHANGED from the original — see lib/program.js. The
- * no-account version of this calculator still exists at /plan-guest
- * for anyone who wants a one-off number with nothing saved.
+ * Order is deliberate and must not be rearranged:
+ *   1. Medical screening. Runs alone. Can end the flow.
+ *   2. Measurements.
+ *   3. Goal, with guardrails applied server-side in lib/program.js.
+ *   4. Plan.
+ *
+ * Nothing is transmitted or stored. All of this runs in the browser.
  */
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   BLOCKING_MEDS, BLOCKING_CONDITIONS, CAUTION_FLAGS, BLOCKED_MESSAGE,
-  screen, baseline, targets, selectDishes, habits, TRUTHS,
+  GOALS, screen, baseline, targets, selectDishes, habits, TRUTHS,
 } from "../../lib/program";
-import { generateMealPlan } from "../../lib/mealplan";
-import { supabaseBrowser } from "../../lib/supabaseClient";
 
 const ACTIVITY_OPTIONS = [
   { id: "sedentary", label: "Desk job, little walking" },
@@ -60,26 +59,6 @@ export default function PlanBuilder() {
   const [goalWeight, setGoalWeight] = useState("");
   const [veg, setVeg] = useState(false);
 
-  const [user, setUser] = useState(null);
-  const [existingPlan, setExistingPlan] = useState(undefined); // undefined = still checking
-  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
-
-  /* ---- who is signed in, and do they already have an active plan ---- */
-  useEffect(() => {
-    const supabase = supabaseBrowser();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      setUser(user);
-      if (!user) { setExistingPlan(null); return; }
-      const { data } = await supabase
-        .from("meal_plans")
-        .select("id, created_at, ends_at")
-        .eq("user_id", user.id)
-        .eq("is_current", true)
-        .maybeSingle();
-      setExistingPlan(data || null);
-    });
-  }, []);
-
   function toggle(list, setList, id) {
     setNoneMedical(false);
     setList(list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
@@ -100,86 +79,16 @@ export default function PlanBuilder() {
       sex, age: Number(age), heightCm: Number(height), weightKg: Number(weight),
       activity, goal, goalWeightKg: goalWeight ? Number(goalWeight) : undefined,
     });
-    const plan = generateMealPlan(t, veg);
     return {
-      b, t, plan,
+      b, t,
       dishes: selectDishes({ veg, goal, baselineResult: b }),
       week1: habits({ targets: t, baselineResult: b, week: 1 }),
     };
   }, [step, sex, age, height, weight, waist, activity, goal, goalWeight, veg]);
 
-  /* ---- persist to Supabase once the result is computed ---- */
-  useEffect(() => {
-    if (!result || !user || saveState !== "idle") return;
-    (async () => {
-      setSaveState("saving");
-      const supabase = supabaseBrowser();
-      const nextCheckin = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-
-      const { error: profileErr } = await supabase.from("profiles").upsert({
-        id: user.id,
-        email: user.email,
-        display_name: user.user_metadata?.full_name || null,
-        sex, age: Number(age), height_cm: Number(height), weight_kg: Number(weight),
-        waist_cm: Number(waist), activity, goal,
-        goal_weight_kg: goalWeight ? Number(goalWeight) : null, veg,
-        bmi: result.b.bmi, whtr: result.b.whtr,
-        intake_kcal: result.t.intake, protein_g: result.t.proteinG,
-        updated_at: new Date().toISOString(),
-        next_checkin_at: nextCheckin,
-      });
-
-      // retire any previous current plan, then insert the new one
-      await supabase.from("meal_plans")
-        .update({ is_current: false })
-        .eq("user_id", user.id)
-        .eq("is_current", true);
-
-      const { error: planErr } = await supabase.from("meal_plans").insert({
-        user_id: user.id, is_current: true,
-        weight_kg: Number(weight), goal,
-        intake_kcal: result.t.intake, protein_g: result.t.proteinG,
-        plan: result.plan,
-        ends_at: nextCheckin,
-      });
-
-      await supabase.from("progress_log").insert({
-        user_id: user.id, weight_kg: Number(weight), waist_cm: Number(waist),
-        bmi: result.b.bmi, whtr: result.b.whtr,
-      });
-
-      setSaveState(profileErr || planErr ? "error" : "saved");
-    })();
-  }, [result, user, saveState]);
-
   const step1Ready = age && (noneMedical || meds.length || conds.length);
   const step2Ready = sex && height && weight && waist && activity;
   const step3Ready = goal && (goal === "maintain" || goal === "health" || goalWeight);
-
-  /* ---------------- already has an active plan ---------------- */
-  if (step === 1 && existingPlan) {
-    const daysLeft = Math.ceil((new Date(existingPlan.ends_at) - Date.now()) / 86400000);
-    return (
-      <Shell>
-        <div className="pl-block">
-          <p className="eyebrow">Welcome back</p>
-          <h1>You already have an active plan</h1>
-          <p className="pl-lede">
-            {daysLeft > 0
-              ? `Started ${new Date(existingPlan.created_at).toLocaleDateString()}. Your next check-in is in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`
-              : "Your two weeks are up — time to check back in and get a fresh plan."}
-          </p>
-          <Link className="pl-btn" href="/account">
-            {daysLeft > 0 ? "View your plan" : "Reassess and get a new plan"}
-          </Link>
-          <button className="pl-btn ghost" style={{ marginLeft: 12 }}
-            onClick={() => setExistingPlan(null)}>
-            Start over anyway
-          </button>
-        </div>
-      </Shell>
-    );
-  }
 
   /* ---------------- blocked ---------------- */
   if (step === 1.5) {
@@ -204,7 +113,7 @@ export default function PlanBuilder() {
 
   /* ---------------- results ---------------- */
   if (step === 4 && result) {
-    const { b, t, dishes, week1, plan } = result;
+    const { b, t, dishes, week1 } = result;
     return (
       <Shell>
         <div className="pl-res">
@@ -250,42 +159,6 @@ export default function PlanBuilder() {
             ))}
           </details>
 
-          <h2>Your 14-day meal plan</h2>
-          <p className="pl-note">{plan.summary.note}</p>
-          <p className="pl-note">
-            Averaging <b>{plan.summary.avgKcal} kcal</b> and <b>{plan.summary.avgProtein} g protein</b> a
-            day against your target of {plan.summary.target.kcal} kcal / {plan.summary.target.protein} g.
-          </p>
-          <div className="pl-plandays">
-            {plan.days.map(d => (
-              <details className="pl-day" key={d.day}>
-                <summary>
-                  Day {d.day} <span>{d.totalKcal} kcal · {d.totalProtein} g protein</span>
-                </summary>
-                {d.meals.map((m, i) => (
-                  <Link href={`/dish/${m.id}`} className="pl-meal" key={i}>
-                    <span className="pl-meal-slot">{m.slot}</span>
-                    <span className="pl-meal-name">{m.name}</span>
-                    <span className="pl-meal-nums">{m.kcal} kcal · {m.protein}g</span>
-                  </Link>
-                ))}
-              </details>
-            ))}
-          </div>
-
-          {saveState === "saved" && (
-            <p className="pl-note" style={{ color: "var(--leaf)" }}>
-              Saved to your account. We'll ask you to check back in in two weeks —
-              in the meantime this plan is always on <Link href="/account">your account page</Link>.
-            </p>
-          )}
-          {saveState === "error" && (
-            <p className="pl-note" style={{ color: "var(--chilli)" }}>
-              Everything above is correct, but saving it to your account didn't go through.
-              Refreshing this page will try again.
-            </p>
-          )}
-
           <h2>What to eat</h2>
           <p className="pl-note">
             Protein first. These are the dishes that get you to {t.proteinG} g a day —
@@ -324,9 +197,7 @@ export default function PlanBuilder() {
              ).map((x, i) => <p key={i}>{x}</p>)}
           </div>
 
-          <button className="pl-btn ghost" onClick={() => { setStep(1); setSaveState("idle"); }}>
-            Start again
-          </button>
+          <button className="pl-btn ghost" onClick={() => setStep(1)}>Start again</button>
         </div>
       </Shell>
     );
@@ -476,23 +347,25 @@ function Shell({ children }) {
       <nav className="nav">
         <div className="nav-in">
           <Link className="mark" href="/">healthy<em>ram</em></Link>
-          <span className="nav-link">
-            <Link href="/">All dishes</Link> · <Link href="/plan">Build a plan</Link> · <Link href="/account">Account</Link>
+        <span className="nav-link">
+            <Link href="/">All dishes</Link> · <Link href="/plan">Build a plan</Link>
           </span>
+          {/* This nav intentionally still points to /plan, not itself —
+              /plan-guest is the fallback, not the front door. */}
         </div>
       </nav>
       <main className="pl">{children}</main>
       <footer className="foot">
         <div className="wrap">
           <p>
-            <strong>Signed-in plans are saved so we can check back in with you in two weeks.</strong>{" "}
-            Prefer nothing stored? Use the <Link href="/plan-guest">guest calculator</Link> instead.
+            <strong>Nothing here is stored or sent anywhere.</strong> This runs entirely in your
+            browser. Close the tab and it is gone.
           </p>
           <p>
             General information about food. Not medical or dietary advice, and no substitute for
             someone who can see your bloodwork.
           </p>
-          <p>© 2026 Aseem Mohan. · <a href="/privacy" style={{ color: "var(--turmeric)" }}>Privacy notice</a></p>
+         <p>© 2026 Aseem Mohan. · <a href="/privacy" style={{ color: "var(--turmeric)" }}>Privacy notice</a></p>
         </div>
       </footer>
 
@@ -589,23 +462,6 @@ function Shell({ children }) {
         .pl-more div { font-size: .89rem; color: var(--soft); margin-top: 12px; }
         .pl-more b { color: var(--ink); }
 
-        .pl-plandays { margin-top: 16px; display: grid; gap: 8px; }
-        .pl-day {
-          background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px;
-        }
-        .pl-day summary {
-          cursor: pointer; font-weight: 700; display: flex; justify-content: space-between; gap: 10px;
-        }
-        .pl-day summary span { font-weight: 500; color: var(--soft); font-size: .85rem; }
-        .pl-meal {
-          display: grid; grid-template-columns: 90px 1fr auto; gap: 10px; align-items: center;
-          padding: 8px 0; text-decoration: none; color: var(--ink); border-top: 1px solid var(--rule);
-        }
-        .pl-meal:first-of-type { border-top: none; margin-top: 10px; }
-        .pl-meal-slot { font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
-        .pl-meal-name { font-weight: 600; }
-        .pl-meal-nums { font-size: .8rem; color: var(--soft); white-space: nowrap; }
-
         .pl-dish {
           display: block; background: var(--card); border: 1px solid var(--rule);
           border-radius: 10px; padding: 16px 18px; margin-bottom: 10px; text-decoration: none;
@@ -634,8 +490,7 @@ function Shell({ children }) {
           .pl-nav { flex-direction: column-reverse; align-items: stretch; gap: 2px; }
           .pl-btn { width: 100%; text-align: center; }
           .pl-dish-top { flex-direction: column; gap: 4px; }
-          .pl-meal { grid-template-columns: 70px 1fr; }
-          .pl-meal-nums { grid-column: 2; }
+        }
         }
       `}</style>
     </>
